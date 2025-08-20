@@ -34,3 +34,6 @@ go.work.sum
 # config files
 config/**/*.yaml
 !config/config.template.yaml
+
+# build dir
+bin/
