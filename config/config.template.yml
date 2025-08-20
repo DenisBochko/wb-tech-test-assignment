@@ -1,0 +1,10 @@
+app:
+  name: "wb-tech-test-assignment"
+log:
+  level: "debug"
+  format_json: false
+  rotation:
+    file: "./api.log"
+    max_size: 10
+    max_backups: 3
+    max_age: 7
