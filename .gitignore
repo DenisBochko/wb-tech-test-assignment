@@ -27,3 +27,10 @@ go.work.sum
 # Editor/IDE
 .idea/
 .vscode/
+
+# log files
+*.log
+
+# config files
+config/**/*.yaml
+!config/config.template.yaml
