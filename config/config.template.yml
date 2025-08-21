@@ -19,4 +19,4 @@ database:
   min_conns: 2
   migration:
     path: "./migrations"
-    auto_apply: false
+    auto_apply: true
