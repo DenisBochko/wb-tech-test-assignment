@@ -1,0 +1,5 @@
+-- 000001_init.up.sql
+
+CREATE TABLE IF NOT EXISTS test (
+    id SERIAL PRIMARY KEY
+);
