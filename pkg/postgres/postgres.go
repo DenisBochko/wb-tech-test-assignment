@@ -19,10 +19,9 @@ const (
 
 type Config struct {
 	Host      string
-	Port      int16
+	Port      uint16
 	User      string
 	Password  string
-	Database  string
 	Name      string
 	SSLMode   string
 	MaxConns  int32
@@ -39,13 +38,13 @@ type Postgres struct {
 	db *pgxpool.Pool
 }
 
-func New(cfg Config) (postgres *Postgres, err error) {
+func New(cfg *Config) (postgres *Postgres, err error) {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
 		cfg.Port,
-		cfg.Database,
+		cfg.Name,
 		cfg.SSLMode,
 	)
 
