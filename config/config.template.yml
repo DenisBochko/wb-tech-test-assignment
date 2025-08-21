@@ -8,3 +8,15 @@ log:
     max_size: 10
     max_backups: 3
     max_age: 7
+database:
+  host: "127.0.0.1"
+  port: 5432
+  user: "postgres"
+  password: "admin"
+  name: "wb-tech-test-assignment"
+  ssl_mode: "disable"
+  max_conns: 10
+  min_conns: 2
+  migration:
+    path: "./migrations"
+    auto_apply: false

@@ -13,8 +13,9 @@ import (
 var ErrConfigPathIsEmpty = errors.New("config path is empty")
 
 type Config struct {
-	App    `yaml:"app"`
-	Logger `yaml:"log"`
+	App      `yaml:"app"`
+	Logger   `yaml:"log"`
+	Database `yaml:"database"`
 }
 
 type App struct {
@@ -32,6 +33,23 @@ type Rotation struct {
 	MaxSize    int    `yaml:"max_size"`
 	MaxBackups int    `yaml:"max_backups"`
 	MaxAge     int    `yaml:"max_age"`
+}
+
+type Database struct {
+	Host      string    `yaml:"host"`
+	Port      uint16    `yaml:"port"`
+	User      string    `yaml:"user"`
+	Password  string    `yaml:"password"`
+	Name      string    `yaml:"name"`
+	SSLMode   string    `yaml:"ssl_mode"`
+	MaxConns  int32     `yaml:"max_conns"`
+	MinConns  int32     `yaml:"min_conns"`
+	Migration Migration `yaml:"migration"`
+}
+
+type Migration struct {
+	Path      string `yaml:"path"`
+	AutoApply bool   `yaml:"auto_apply"`
 }
 
 func MustLoadConfig() *Config {
