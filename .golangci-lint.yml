@@ -6,6 +6,7 @@ run:
   issues-exit-code: 1            # Код выхода = 1, если найдены ошибки (полезно для CI/CD)
   tests: true                    # Анализировать также _test.go файлы
   modules-download-mode: readonly # Не разрешать загрузку зависимостей во время анализа (безопасно и быстрее на CI)
+  allow-parallel-runners: true
 
 output: # Настройки вывода результатов линтинга
   formats:
