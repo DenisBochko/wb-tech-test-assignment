@@ -1,5 +1,5 @@
 app:
-  name: "wb-tech-test-assignment"
+  service_name: "wb-tech-test-assignment"
 log:
   level: "debug"
   format_json: false

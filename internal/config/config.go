@@ -19,7 +19,7 @@ type Config struct {
 }
 
 type App struct {
-	Name string `yaml:"name"`
+	ServiceName string `yaml:"service_name"`
 }
 
 type Logger struct {
