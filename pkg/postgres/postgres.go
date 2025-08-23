@@ -17,6 +17,11 @@ const (
 	MaxConnIdleTime = 30 * time.Minute
 )
 
+type Postgres interface {
+	Pool() *pgxpool.Pool
+	Close()
+}
+
 type Config struct {
 	Host      string
 	Port      uint16
@@ -34,11 +39,11 @@ type Migration struct {
 	AutoApply bool
 }
 
-type Postgres struct {
+type postgres struct {
 	db *pgxpool.Pool
 }
 
-func New(cfg *Config) (postgres *Postgres, err error) {
+func New(cfg *Config) (postgresDB Postgres, err error) {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
@@ -91,17 +96,17 @@ func New(cfg *Config) (postgres *Postgres, err error) {
 
 	}
 
-	postgres = &Postgres{
+	postgresDB = &postgres{
 		db: pool,
 	}
 
-	return postgres, nil
+	return postgresDB, nil
 }
 
-func (p *Postgres) Pool() *pgxpool.Pool {
+func (p *postgres) Pool() *pgxpool.Pool {
 	return p.db
 }
 
-func (p *Postgres) Close() {
+func (p *postgres) Close() {
 	p.db.Close()
 }
