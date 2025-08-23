@@ -33,25 +33,23 @@ func main() {
 	}
 
 	log := logger.MustSetupLogger(loggerCfg)
-	defer func() {
-		if err := log.Sync(); err != nil {
-			log.Error("Failed to sync logger", zap.Error(err))
-		}
-	}()
 
 	errors := make(chan error)
 
 	application := app.MustNew(ctx, cfg, log)
 	defer func() {
-		err := application.Shutdown()
-		if err != nil {
+		if err := application.Shutdown(); err != nil {
 			log.Error("Failed to shutdown application", zap.Error(err))
 		}
 
-		log.Info("Application shutdown")
+		if err := log.Sync(); err != nil {
+			log.Warn("Failed to sync logger", zap.Error(err))
+		}
+
+		log.Info("Application shutdowned")
 	}()
 
-	go func() { errors <- application.Run() }()
+	go func() { errors <- application.Run(ctx) }()
 
 	select {
 	case err := <-errors:
