@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	"github.com/sirupsen/logrus"
 )
 
 type Balancer int
@@ -91,12 +90,11 @@ func WithTimeuot(timeout time.Duration) Option {
 }
 
 type producer struct {
-	l            *logrus.Logger
 	syncProducer sarama.SyncProducer
 	topic        string
 }
 
-func NewProducer(l *logrus.Logger, brokers []string, topic string, opts ...Option) (Producer, error) {
+func NewProducer(brokers []string, topic string, opts ...Option) (Producer, error) {
 	cfg := sarama.NewConfig()
 	cfg.Producer.Return.Successes = true
 	cfg.Producer.Return.Errors = true
@@ -111,7 +109,6 @@ func NewProducer(l *logrus.Logger, brokers []string, topic string, opts ...Optio
 	}
 
 	return &producer{
-		l:            l,
 		syncProducer: syncProducer,
 		topic:        topic,
 	}, nil
