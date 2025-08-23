@@ -36,14 +36,14 @@ func main() {
 	}()
 
 	postgresCfg := &postgres.Config{
-		Host:     cfg.Database.Host,
-		Port:     cfg.Database.Port,
-		User:     cfg.Database.User,
-		Password: cfg.Database.Password,
-		Name:     cfg.Database.Name,
-		SSLMode:  cfg.Database.SSLMode,
-		MaxConns: cfg.Database.MaxConns,
-		MinConns: cfg.Database.MinConns,
+		Host:     cfg.Host,
+		Port:     cfg.Port,
+		User:     cfg.User,
+		Password: cfg.Password,
+		Name:     cfg.Name,
+		SSLMode:  cfg.SSLMode,
+		MaxConns: cfg.MaxConns,
+		MinConns: cfg.MinConns,
 		Migration: postgres.Migration{
 			Path:      cfg.Migration.Path,
 			AutoApply: cfg.Migration.AutoApply,
