@@ -20,3 +20,13 @@ database:
   migration:
     path: "./migrations"
     auto_apply: true
+kafka:
+  brokers:
+    - "127.0.0.1:9092"
+  subscriber:
+    name: "orders-subscriber"
+    worker_count: 3
+    orders_subscriber:
+      buffer_size: 100
+      topic: "wb-tech-test-assignment-orders-topic-v1"
+      group_id: "wb-tech-test-assignment-orders-group-v1"

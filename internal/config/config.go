@@ -16,6 +16,7 @@ type Config struct {
 	App      `yaml:"app"`
 	Logger   `yaml:"log"`
 	Database `yaml:"database"`
+	Kafka    `yaml:"kafka"`
 }
 
 type App struct {
@@ -50,6 +51,23 @@ type Database struct {
 type Migration struct {
 	Path      string `yaml:"path"`
 	AutoApply bool   `yaml:"auto_apply"`
+}
+
+type Kafka struct {
+	Brokers    []string   `yaml:"brokers"`
+	Subscriber Subscriber `yaml:"subscriber"`
+}
+
+type Subscriber struct {
+	Name             string           `yaml:"name"`
+	WorkerCount      int              `yaml:"worker_count"`
+	OrdersSubscriber OrdersSubscriber `yaml:"orders_subscriber"`
+}
+
+type OrdersSubscriber struct {
+	BufferSize int    `yaml:"buffer_size"`
+	Topic      string `yaml:"topic"`
+	GroupID    string `yaml:"group_id"`
 }
 
 func MustLoadConfig() *Config {
