@@ -13,9 +13,7 @@ const (
 	UpAndRunning = "kafka consumer up and running"
 )
 
-var (
-	ErrSendMessageTimeout = fmt.Errorf("kafka send message timeout")
-)
+var ErrSendMessageTimeout = fmt.Errorf("kafka send message timeout")
 
 // Option defines a configuration function for Kafka producers.
 type Option func(*sarama.Config)
