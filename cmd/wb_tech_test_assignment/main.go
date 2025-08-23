@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"os/signal"
+	"syscall"
 
 	"go.uber.org/zap"
 
+	"wb-tech-test-assignment/internal/app"
 	"wb-tech-test-assignment/internal/config"
 	"wb-tech-test-assignment/pkg/logger"
-	"wb-tech-test-assignment/pkg/postgres"
 )
 
 func main() {
 	ctx := context.Background()
+
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	cfg := config.MustLoadConfig()
 	config.MustPrintConfig(cfg)
@@ -31,35 +35,30 @@ func main() {
 	log := logger.MustSetupLogger(loggerCfg)
 	defer func() {
 		if err := log.Sync(); err != nil {
-			log.Error("failed to sync logger", zap.Error(err))
+			log.Error("Failed to sync logger", zap.Error(err))
 		}
 	}()
 
-	postgresCfg := &postgres.Config{
-		Host:     cfg.Host,
-		Port:     cfg.Port,
-		User:     cfg.User,
-		Password: cfg.Password,
-		Name:     cfg.Name,
-		SSLMode:  cfg.SSLMode,
-		MaxConns: cfg.MaxConns,
-		MinConns: cfg.MinConns,
-		Migration: postgres.Migration{
-			Path:      cfg.Migration.Path,
-			AutoApply: cfg.Migration.AutoApply,
-		},
+	errors := make(chan error)
+
+	application := app.MustNew(ctx, cfg, log)
+	defer func() {
+		err := application.Shutdown()
+		if err != nil {
+			log.Error("Failed to shutdown application", zap.Error(err))
+		}
+
+		log.Info("Application shutdown")
+	}()
+
+	go func() { errors <- application.Run() }()
+
+	select {
+	case err := <-errors:
+		if err != nil {
+			log.Error("Server error, shutting down...", zap.Error(err))
+		}
+	case <-ctx.Done():
+		log.Info("Received stop signal, shutting down...")
 	}
-
-	database, err := postgres.New(postgresCfg)
-	if err != nil {
-		log.Fatal("failed to connect to database", zap.Error(err))
-	}
-
-	defer database.Close()
-
-	log.Debug("start", zap.Any("database", database.Pool().Ping(ctx)))
-	log.Info("start")
-	log.Warn("start")
-
-	fmt.Println("start")
 }
