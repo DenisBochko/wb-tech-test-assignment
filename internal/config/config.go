@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"gopkg.in/yaml.v3"
@@ -13,10 +14,11 @@ import (
 var ErrConfigPathIsEmpty = errors.New("config path is empty")
 
 type Config struct {
-	App      `yaml:"app"`
-	Logger   `yaml:"log"`
-	Database `yaml:"database"`
-	Kafka    `yaml:"kafka"`
+	App        `yaml:"app"`
+	Logger     `yaml:"log"`
+	Database   `yaml:"database"`
+	Kafka      `yaml:"kafka"`
+	HTTPServer `yaml:"http_server"`
 }
 
 type App struct {
@@ -68,6 +70,20 @@ type OrdersSubscriber struct {
 	BufferSize int    `yaml:"buffer_size"`
 	Topic      string `yaml:"topic"`
 	GroupID    string `yaml:"group_id"`
+}
+
+type HTTPServer struct {
+	Host     string  `yaml:"host"`
+	Port     int     `yaml:"port"`
+	BasePath string  `yaml:"base_path"`
+	Timeout  Timeout `yaml:"timeout"`
+}
+
+type Timeout struct {
+	Request time.Duration `yaml:"request"`
+	Read    time.Duration `yaml:"read"`
+	Write   time.Duration `yaml:"write"`
+	Idle    time.Duration `yaml:"idle"`
 }
 
 func MustLoadConfig() *Config {

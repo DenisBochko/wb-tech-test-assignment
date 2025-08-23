@@ -30,3 +30,12 @@ kafka:
       buffer_size: 100
       topic: "wb-tech-test-assignment-orders-topic-v1"
       group_id: "wb-tech-test-assignment-orders-group-v1"
+http_server:
+  host: "127.0.0.1"
+  port: 8080
+  base_path: ""
+  timeout:
+    request: 3s
+    read: 5s
+    write: 5s
+    idle: 5s
