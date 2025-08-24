@@ -19,11 +19,9 @@ const (
 	DefaultShutdownTimeout = 30 * time.Second
 )
 
-type Server interface {
+type HTTPServer interface {
 	Run() error
-	Shutdown(ctx context.Context) error
-	Info() <-chan string
-	Error() <-chan error
+	Shutdown() error
 }
 
 type Option func(*http.Server)
@@ -48,13 +46,11 @@ func WithHandler(handler http.Handler) Option {
 	}
 }
 
-type HTTPServer struct {
-	srv      *http.Server
-	infoChan chan string
-	errChan  chan error
+type httpServer struct {
+	srv *http.Server
 }
 
-func NewHTTPServer(opts ...Option) Server {
+func NewHTTPServer(opts ...Option) HTTPServer {
 	srv := &http.Server{
 		Addr:         net.JoinHostPort(DefaultHost, strconv.Itoa(DefaultPort)),
 		ReadTimeout:  DefaultReadTimeout,
@@ -66,27 +62,21 @@ func NewHTTPServer(opts ...Option) Server {
 		opt(srv)
 	}
 
-	return &HTTPServer{
-		srv:      srv,
-		infoChan: make(chan string, 1),
-		errChan:  make(chan error, 1),
+	return &httpServer{
+		srv: srv,
 	}
 }
 
-func (s *HTTPServer) Run() error {
-	s.sendInfo(fmt.Sprintf("Starting HTTP server at: %s", s.srv.Addr))
-
-	go func() {
-		if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.errChan <- fmt.Errorf("failed to start HTTP server: %w", err)
-		}
-	}()
+func (s *httpServer) Run() error {
+	if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
+	}
 
 	return nil
 }
 
-func (s *HTTPServer) Shutdown(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, DefaultShutdownTimeout)
+func (s *httpServer) Shutdown() error {
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultShutdownTimeout)
 	defer cancel()
 
 	if err := s.srv.Shutdown(ctx); err != nil {
@@ -94,19 +84,4 @@ func (s *HTTPServer) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (s *HTTPServer) Info() <-chan string {
-	return s.infoChan
-}
-
-func (s *HTTPServer) Error() <-chan error {
-	return s.errChan
-}
-
-func (s *HTTPServer) sendInfo(msg string) {
-	select {
-	case s.infoChan <- msg:
-	default:
-	}
 }
