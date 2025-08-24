@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"wb-tech-test-assignment/internal/repository"
 	"wb-tech-test-assignment/internal/service"
 	"wb-tech-test-assignment/pkg/server"
 
@@ -27,8 +28,12 @@ type App struct {
 	Service    *Service
 }
 
+type Repository struct {
+	OrderRepository *repository.OrderRepository
+}
+
 type Service struct {
-	OrderSerice OrderService
+	OrderService OrderService
 }
 
 func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error) {
@@ -46,7 +51,9 @@ func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error)
 		return nil, err
 	}
 
-	svc := initService(log, &cfg.Subscriber, consumer)
+	repo := initRepository(db)
+
+	svc := initService(log, &cfg.Subscriber, consumer, db, repo)
 
 	httpServer := initHTTPServer(cfg.HTTPServer)
 
@@ -74,7 +81,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer close(errors)
 
 	go func() {
-		if err := a.Service.OrderSerice.Run(ctx); err != nil {
+		if err := a.Service.OrderService.Run(ctx); err != nil {
 			errors <- err
 		}
 	}()
@@ -97,7 +104,7 @@ func (a *App) Shutdown() error {
 
 	a.Log.Debug("Database closed")
 
-	if err := a.Service.OrderSerice.Shutdown(); err != nil {
+	if err := a.Service.OrderService.Shutdown(); err != nil {
 		return fmt.Errorf("failed to shutdown order service: %w", err)
 	}
 
@@ -157,11 +164,19 @@ func initKafka(cfg *config.Kafka, log *zap.Logger) (kafka.ConsumerGroupRunner, e
 	return consumerGroup, nil
 }
 
-func initService(log *zap.Logger, cfg *config.Subscriber, consumer kafka.ConsumerGroupRunner) *Service {
-	orderService := service.NewOrderService(log, cfg, consumer)
+func initRepository(db postgres.Postgres) *Repository {
+	orderRepository := repository.NewOrderRepository(db.Pool())
+
+	return &Repository{
+		OrderRepository: orderRepository,
+	}
+}
+
+func initService(log *zap.Logger, cfg *config.Subscriber, consumer kafka.ConsumerGroupRunner, db postgres.Postgres, repo *Repository) *Service {
+	orderService := service.NewOrderService(log, cfg, consumer, db, repo.OrderRepository)
 
 	return &Service{
-		OrderSerice: orderService,
+		OrderService: orderService,
 	}
 }
 
