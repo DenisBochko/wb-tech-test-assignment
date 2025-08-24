@@ -38,6 +38,8 @@ func main() {
 
 	application := app.MustNew(ctx, cfg, log)
 	defer func() {
+		close(errors)
+
 		if err := application.Shutdown(); err != nil {
 			log.Error("Failed to shutdown application", zap.Error(err))
 		}
