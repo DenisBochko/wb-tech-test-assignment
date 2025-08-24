@@ -74,7 +74,7 @@ type OrdersSubscriber struct {
 
 type HTTPServer struct {
 	Host     string  `yaml:"host"`
-	Port     int     `yaml:"port"`
+	Port     uint16  `yaml:"port"`
 	BasePath string  `yaml:"base_path"`
 	Timeout  Timeout `yaml:"timeout"`
 }
