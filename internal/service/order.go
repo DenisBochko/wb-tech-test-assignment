@@ -18,9 +18,13 @@ import (
 
 type OrderRepository interface {
 	InsertOrder(ctx context.Context, ext repository.RepoExtension, order model.Order) error
+	SelectOrder(ctx context.Context, ext repository.RepoExtension, OrderUID string) (model.Order, error)
 	InsertDelivery(ctx context.Context, ext repository.RepoExtension, orderUID string, delivery model.Delivery) error
+	SelectDelivery(ctx context.Context, ext repository.RepoExtension, orderUID string) (model.Delivery, error)
 	InsertPayment(ctx context.Context, ext repository.RepoExtension, orderUID string, payment model.Payment) error
+	SelectPayment(ctx context.Context, ext repository.RepoExtension, orderUID string) (model.Payment, error)
 	InsertItems(ctx context.Context, ext repository.RepoExtension, orderUID string, items []model.Item) error
+	SelectItems(ctx context.Context, ext repository.RepoExtension, orderUID string) ([]model.Item, error)
 }
 
 type OrderService struct {
@@ -81,6 +85,47 @@ func (s *OrderService) Shutdown() error {
 	return nil
 }
 
+func (s *OrderService) GetOrder(ctx context.Context, orderUID string) (model.Order, error) {
+	tx, err := s.db.Pool().Begin(ctx)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	order, err := s.orderRepo.SelectOrder(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select order: %w", err)
+	}
+
+	delivery, err := s.orderRepo.SelectDelivery(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select delivery: %w", err)
+	}
+
+	payment, err := s.orderRepo.SelectPayment(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select payment: %w", err)
+	}
+
+	items, err := s.orderRepo.SelectItems(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select items: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return model.Order{}, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	order.Delivery = delivery
+	order.Payment = payment
+	order.Items = items
+
+	return order, nil
+}
+
 func (s *OrderService) worker(ctx context.Context, id int, message <-chan *kafka.MessageWithMarkFunc) {
 	s.log.Info("worker start", zap.Int("worker_id", id))
 
@@ -109,7 +154,7 @@ func (s *OrderService) processOrder(ctx context.Context, message []byte) (string
 
 	tx, err := s.db.Pool().Begin(ctx)
 	if err != nil {
-		return "", fmt.Errorf("error starting transaction: %w", err)
+		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	defer func() {
