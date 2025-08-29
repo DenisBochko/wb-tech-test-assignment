@@ -180,8 +180,11 @@ func initService(log *zap.Logger, cfg *config.Subscriber, consumer kafka.Consume
 
 func initHTTPServer(ctx context.Context, log *zap.Logger, cfg config.HTTPServer, svc *service.OrderService) server.HTTPServer {
 	r := chi.NewRouter()
+
 	r.Use(middleware.Logger(log))
-	r.Get("/ping", handler.Ping)
+
+	r.Get("/", handler.MainPage)
+	r.Get("/api/ping", handler.Ping)
 	r.Get("/api/order/{orderUID}", handler.GetOrder(ctx, svc))
 
 	httpServer := server.NewHTTPServer(
