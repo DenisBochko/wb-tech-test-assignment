@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/IBM/sarama v1.45.2
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/ilyakaznacheev/cleanenv v1.5.0
