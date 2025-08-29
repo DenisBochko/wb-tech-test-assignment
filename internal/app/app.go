@@ -3,18 +3,18 @@ package app
 import (
 	"context"
 	"fmt"
-	"wb-tech-test-assignment/internal/api/http/handler"
-	"wb-tech-test-assignment/internal/repository"
-	"wb-tech-test-assignment/internal/service"
-	"wb-tech-test-assignment/pkg/server"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"wb-tech-test-assignment/internal/api/http/handler"
 	"wb-tech-test-assignment/internal/api/http/middleware"
 	"wb-tech-test-assignment/internal/config"
+	"wb-tech-test-assignment/internal/repository"
+	"wb-tech-test-assignment/internal/service"
 	"wb-tech-test-assignment/pkg/kafka"
 	"wb-tech-test-assignment/pkg/postgres"
+	"wb-tech-test-assignment/pkg/server"
 )
 
 type App struct {

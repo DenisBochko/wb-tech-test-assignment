@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"wb-tech-test-assignment/internal/config"
-	"wb-tech-test-assignment/internal/model"
-	"wb-tech-test-assignment/internal/repository"
-	"wb-tech-test-assignment/pkg/postgres"
 
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 
+	"wb-tech-test-assignment/internal/config"
+	"wb-tech-test-assignment/internal/model"
+	"wb-tech-test-assignment/internal/repository"
 	"wb-tech-test-assignment/pkg/kafka"
+	"wb-tech-test-assignment/pkg/postgres"
 )
 
 type OrderRepository interface {

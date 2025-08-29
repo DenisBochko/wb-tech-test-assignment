@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"wb-tech-test-assignment/internal/apperrors"
-
-	"wb-tech-test-assignment/internal/model"
 
 	"github.com/go-chi/chi/v5"
+
+	"wb-tech-test-assignment/internal/apperrors"
+	"wb-tech-test-assignment/internal/model"
 )
 
 type OrderService interface {

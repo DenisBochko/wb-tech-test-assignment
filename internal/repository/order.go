@@ -3,11 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
-	"wb-tech-test-assignment/internal/apperrors"
-	"wb-tech-test-assignment/internal/model"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"wb-tech-test-assignment/internal/apperrors"
+	"wb-tech-test-assignment/internal/model"
 )
 
 // Пояснение: Можно было бы сделать 2 запроса SELECT в бд, но т.к. полей в таблицах довольно много
