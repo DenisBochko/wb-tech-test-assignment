@@ -3,21 +3,19 @@ package app
 import (
 	"context"
 	"fmt"
+	"wb-tech-test-assignment/internal/api/http/handler"
 	"wb-tech-test-assignment/internal/repository"
 	"wb-tech-test-assignment/internal/service"
 	"wb-tech-test-assignment/pkg/server"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"wb-tech-test-assignment/internal/api/http/middleware"
 	"wb-tech-test-assignment/internal/config"
 	"wb-tech-test-assignment/pkg/kafka"
 	"wb-tech-test-assignment/pkg/postgres"
 )
-
-type OrderService interface {
-	Run(ctx context.Context) error
-	Shutdown() error
-}
 
 type App struct {
 	Cfg        *config.Config
@@ -33,7 +31,7 @@ type Repository struct {
 }
 
 type Service struct {
-	OrderService OrderService
+	OrderService *service.OrderService
 }
 
 func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error) {
@@ -55,7 +53,7 @@ func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error)
 
 	svc := initService(log, &cfg.Subscriber, consumer, db, repo)
 
-	httpServer := initHTTPServer(cfg.HTTPServer)
+	httpServer := initHTTPServer(ctx, log, cfg.HTTPServer, svc.OrderService)
 
 	return &App{
 		Cfg:        cfg,
@@ -180,10 +178,16 @@ func initService(log *zap.Logger, cfg *config.Subscriber, consumer kafka.Consume
 	}
 }
 
-func initHTTPServer(cfg config.HTTPServer) server.HTTPServer {
+func initHTTPServer(ctx context.Context, log *zap.Logger, cfg config.HTTPServer, svc *service.OrderService) server.HTTPServer {
+	r := chi.NewRouter()
+	r.Use(middleware.Logger(log))
+	r.Get("/ping", handler.Ping)
+	r.Get("/api/order/{orderUID}", handler.GetOrder(ctx, svc))
+
 	httpServer := server.NewHTTPServer(
 		server.WithAddr(cfg.Host, cfg.Port),
 		server.WithTimeout(cfg.Timeout.Read, cfg.Timeout.Write, cfg.Timeout.Idle),
+		server.WithHandler(r),
 	)
 
 	return httpServer
