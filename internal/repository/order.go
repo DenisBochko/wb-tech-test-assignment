@@ -103,6 +103,43 @@ func (o *OrderRepository) GetOrder(ctx context.Context, orderUID string) (model.
 	return order, nil
 }
 
+func (o *OrderRepository) GetOrdersBatch(ctx context.Context, limit, offset int) ([]model.Order, error) {
+	const query = `
+		SELECT order_uid
+		FROM orders
+		ORDER BY date_created DESC
+		LIMIT $1 OFFSET $2;
+	`
+
+	rows, err := o.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query orders: %w", err)
+	}
+
+	defer rows.Close()
+
+	var orders []model.Order
+	for rows.Next() {
+		var uid string
+		if err = rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+
+		order, err := o.GetOrder(ctx, uid)
+		if err != nil {
+			return nil, err
+		}
+
+		orders = append(orders, order)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 func (o *OrderRepository) insertOrder(ctx context.Context, ext RepoExtension, order model.Order) error {
 	if ext == nil {
 		ext = o.db
