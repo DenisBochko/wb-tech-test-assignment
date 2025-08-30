@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-chi/chi/v5"
@@ -9,11 +10,13 @@ import (
 
 	"wb-tech-test-assignment/internal/api/http/handler"
 	"wb-tech-test-assignment/internal/api/http/middleware"
+	"wb-tech-test-assignment/internal/apperrors"
 	"wb-tech-test-assignment/internal/config"
 	"wb-tech-test-assignment/internal/repository"
 	"wb-tech-test-assignment/internal/service"
 	"wb-tech-test-assignment/pkg/kafka"
 	"wb-tech-test-assignment/pkg/postgres"
+	"wb-tech-test-assignment/pkg/redis"
 	"wb-tech-test-assignment/pkg/server"
 )
 
@@ -21,6 +24,7 @@ type App struct {
 	Cfg        *config.Config
 	Log        *zap.Logger
 	DB         postgres.Postgres
+	RDB        redis.Redis
 	Consumer   kafka.ConsumerGroupRunner
 	HTTPServer server.HTTPServer
 	Service    *Service
@@ -39,14 +43,21 @@ func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error)
 	if err != nil {
 		log.Error("Failed to initialize database", zap.Error(err))
 
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	rdb, err := initRedis(&cfg.Redis)
+	if err != nil {
+		log.Error("Failed to initialize redis", zap.Error(err))
+
+		return nil, fmt.Errorf("failed to initialize redis: %w", err)
 	}
 
 	consumer, err := initKafka(&cfg.Kafka, log)
 	if err != nil {
 		log.Error("Failed to initialize kafka", zap.Error(err))
 
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize kafka: %w", err)
 	}
 
 	repo := initRepository(db)
@@ -59,6 +70,7 @@ func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error)
 		Cfg:        cfg,
 		Log:        log,
 		DB:         db,
+		RDB:        rdb,
 		Consumer:   consumer,
 		HTTPServer: httpServer,
 		Service:    svc,
@@ -75,22 +87,22 @@ func MustNew(ctx context.Context, cfg *config.Config, log *zap.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	errors := make(chan error)
-	defer close(errors)
+	errs := make(chan error)
+	defer close(errs)
 
 	go func() {
 		if err := a.Service.OrderService.Run(ctx); err != nil {
-			errors <- err
+			errs <- err
 		}
 	}()
 
 	go func() {
 		if err := a.HTTPServer.Run(); err != nil {
-			errors <- err
+			errs <- err
 		}
 	}()
 
-	if err := <-errors; err != nil {
+	if err := <-errs; err != nil {
 		return err
 	}
 
@@ -102,17 +114,29 @@ func (a *App) Shutdown() error {
 
 	a.Log.Debug("Database closed")
 
-	if err := a.Service.OrderService.Shutdown(); err != nil {
-		return fmt.Errorf("failed to shutdown order service: %w", err)
+	err := apperrors.ErrShutdown
+
+	if rdbErr := a.RDB.Close(); rdbErr != nil {
+		err = fmt.Errorf("%w, failed to close RDB: %w", err, rdbErr)
+	}
+
+	a.Log.Debug("Redis closed")
+
+	if svcErr := a.Service.OrderService.Shutdown(); svcErr != nil {
+		err = fmt.Errorf("%w, failed to shutdown order service: %w", err, svcErr)
 	}
 
 	a.Log.Debug("Order service shutdown")
 
-	if err := a.HTTPServer.Shutdown(); err != nil {
-		return fmt.Errorf("failed to shutdown http server: %w", err)
+	if srvErr := a.HTTPServer.Shutdown(); srvErr != nil {
+		err = fmt.Errorf("%w, failed to shutdown http server: %w", err, srvErr)
 	}
 
 	a.Log.Debug("Http server shutdown")
+
+	if !errors.Is(err, apperrors.ErrShutdown) {
+		return err
+	}
 
 	return nil
 }
@@ -139,6 +163,22 @@ func initDB(cfg *config.Database) (postgres.Postgres, error) {
 	}
 
 	return db, nil
+}
+
+func initRedis(cfg *config.Redis) (redis.Redis, error) {
+	redisCfg := &redis.Config{
+		Host:     cfg.Host,
+		Port:     cfg.Port,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	}
+
+	rdb, err := redis.New(redisCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return rdb, nil
 }
 
 func initKafka(cfg *config.Kafka, log *zap.Logger) (kafka.ConsumerGroupRunner, error) {
