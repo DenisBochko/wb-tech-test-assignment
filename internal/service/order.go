@@ -11,20 +11,13 @@ import (
 
 	"wb-tech-test-assignment/internal/config"
 	"wb-tech-test-assignment/internal/model"
-	"wb-tech-test-assignment/internal/repository"
 	"wb-tech-test-assignment/pkg/kafka"
 	"wb-tech-test-assignment/pkg/postgres"
 )
 
 type OrderRepository interface {
-	InsertOrder(ctx context.Context, ext repository.RepoExtension, order model.Order) error
-	SelectOrder(ctx context.Context, ext repository.RepoExtension, OrderUID string) (model.Order, error)
-	InsertDelivery(ctx context.Context, ext repository.RepoExtension, orderUID string, delivery model.Delivery) error
-	SelectDelivery(ctx context.Context, ext repository.RepoExtension, orderUID string) (model.Delivery, error)
-	InsertPayment(ctx context.Context, ext repository.RepoExtension, orderUID string, payment model.Payment) error
-	SelectPayment(ctx context.Context, ext repository.RepoExtension, orderUID string) (model.Payment, error)
-	InsertItems(ctx context.Context, ext repository.RepoExtension, orderUID string, items []model.Item) error
-	SelectItems(ctx context.Context, ext repository.RepoExtension, orderUID string) ([]model.Item, error)
+	PutOrder(ctx context.Context, order model.Order) error
+	GetOrder(ctx context.Context, orderUID string) (model.Order, error)
 }
 
 type OrderService struct {
@@ -86,42 +79,10 @@ func (s *OrderService) Shutdown() error {
 }
 
 func (s *OrderService) GetOrder(ctx context.Context, orderUID string) (model.Order, error) {
-	tx, err := s.db.Pool().Begin(ctx)
+	order, err := s.orderRepo.GetOrder(ctx, orderUID)
 	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to begin transaction: %w", err)
+		return model.Order{}, fmt.Errorf("failed to get order: %w", err)
 	}
-
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	order, err := s.orderRepo.SelectOrder(ctx, tx, orderUID)
-	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to select order: %w", err)
-	}
-
-	delivery, err := s.orderRepo.SelectDelivery(ctx, tx, orderUID)
-	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to select delivery: %w", err)
-	}
-
-	payment, err := s.orderRepo.SelectPayment(ctx, tx, orderUID)
-	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to select payment: %w", err)
-	}
-
-	items, err := s.orderRepo.SelectItems(ctx, tx, orderUID)
-	if err != nil {
-		return model.Order{}, fmt.Errorf("failed to select items: %w", err)
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return model.Order{}, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	order.Delivery = delivery
-	order.Payment = payment
-	order.Items = items
 
 	return order, nil
 }
@@ -152,37 +113,8 @@ func (s *OrderService) processOrder(ctx context.Context, message []byte) (string
 		return "", fmt.Errorf("failed to validate order: %w", err)
 	}
 
-	tx, err := s.db.Pool().Begin(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	err = s.orderRepo.InsertOrder(ctx, tx, order)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert order: %w", err)
-	}
-
-	err = s.orderRepo.InsertDelivery(ctx, tx, order.OrderUID, order.Delivery)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert delivery: %w", err)
-	}
-
-	err = s.orderRepo.InsertPayment(ctx, tx, order.OrderUID, order.Payment)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert payment: %w", err)
-	}
-
-	err = s.orderRepo.InsertItems(ctx, tx, order.OrderUID, order.Items)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert items: %w", err)
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("error committing transaction: %w", err)
+	if err := s.orderRepo.PutOrder(ctx, order); err != nil {
+		return "", fmt.Errorf("failed to put order: %w", err)
 	}
 
 	return order.OrderUID, nil

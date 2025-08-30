@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,18 +16,96 @@ import (
 // решил разнести это по отдельным запросам.
 
 type OrderRepository struct {
-	DB *pgxpool.Pool
+	db *pgxpool.Pool
 }
 
 func NewOrderRepository(db *pgxpool.Pool) *OrderRepository {
 	return &OrderRepository{
-		DB: db,
+		db: db,
 	}
 }
 
-func (o *OrderRepository) InsertOrder(ctx context.Context, ext RepoExtension, order model.Order) error {
+func (o *OrderRepository) PutOrder(ctx context.Context, order model.Order) error {
+	tx, err := o.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	err = o.insertOrder(ctx, tx, order)
+	if err != nil {
+		return fmt.Errorf("failed to insert order: %w", err)
+	}
+
+	err = o.insertDelivery(ctx, tx, order.OrderUID, order.Delivery)
+	if err != nil {
+		return fmt.Errorf("failed to insert delivery: %w", err)
+	}
+
+	err = o.insertPayment(ctx, tx, order.OrderUID, order.Payment)
+	if err != nil {
+		return fmt.Errorf("failed to insert payment: %w", err)
+	}
+
+	err = o.insertItems(ctx, tx, order.OrderUID, order.Items)
+	if err != nil {
+		return fmt.Errorf("failed to insert items: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (o *OrderRepository) GetOrder(ctx context.Context, orderUID string) (model.Order, error) {
+	tx, err := o.db.Begin(ctx)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	order, err := o.selectOrder(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select order: %w", err)
+	}
+
+	delivery, err := o.selectDelivery(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select delivery: %w", err)
+	}
+
+	payment, err := o.selectPayment(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select payment: %w", err)
+	}
+
+	items, err := o.selectItems(ctx, tx, orderUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("failed to select items: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return model.Order{}, fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	order.Delivery = delivery
+	order.Payment = payment
+	order.Items = items
+
+	return order, nil
+}
+
+func (o *OrderRepository) insertOrder(ctx context.Context, ext RepoExtension, order model.Order) error {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -64,9 +143,9 @@ func (o *OrderRepository) InsertOrder(ctx context.Context, ext RepoExtension, or
 	return nil
 }
 
-func (o *OrderRepository) SelectOrder(ctx context.Context, ext RepoExtension, OrderUID string) (model.Order, error) {
+func (o *OrderRepository) selectOrder(ctx context.Context, ext RepoExtension, OrderUID string) (model.Order, error) {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -101,9 +180,9 @@ func (o *OrderRepository) SelectOrder(ctx context.Context, ext RepoExtension, Or
 	return order, nil
 }
 
-func (o *OrderRepository) InsertDelivery(ctx context.Context, ext RepoExtension, orderUID string, delivery model.Delivery) error {
+func (o *OrderRepository) insertDelivery(ctx context.Context, ext RepoExtension, orderUID string, delivery model.Delivery) error {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -128,9 +207,9 @@ func (o *OrderRepository) InsertDelivery(ctx context.Context, ext RepoExtension,
 	return nil
 }
 
-func (o *OrderRepository) SelectDelivery(ctx context.Context, ext RepoExtension, orderUID string) (model.Delivery, error) {
+func (o *OrderRepository) selectDelivery(ctx context.Context, ext RepoExtension, orderUID string) (model.Delivery, error) {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -157,9 +236,9 @@ func (o *OrderRepository) SelectDelivery(ctx context.Context, ext RepoExtension,
 	return delivery, nil
 }
 
-func (o *OrderRepository) InsertPayment(ctx context.Context, ext RepoExtension, orderUID string, payment model.Payment) error {
+func (o *OrderRepository) insertPayment(ctx context.Context, ext RepoExtension, orderUID string, payment model.Payment) error {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -197,9 +276,9 @@ func (o *OrderRepository) InsertPayment(ctx context.Context, ext RepoExtension, 
 	return nil
 }
 
-func (o *OrderRepository) SelectPayment(ctx context.Context, ext RepoExtension, orderUID string) (model.Payment, error) {
+func (o *OrderRepository) selectPayment(ctx context.Context, ext RepoExtension, orderUID string) (model.Payment, error) {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -229,9 +308,9 @@ func (o *OrderRepository) SelectPayment(ctx context.Context, ext RepoExtension, 
 	return payment, nil
 }
 
-func (o *OrderRepository) InsertItems(ctx context.Context, ext RepoExtension, orderUID string, items []model.Item) error {
+func (o *OrderRepository) insertItems(ctx context.Context, ext RepoExtension, orderUID string, items []model.Item) error {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `
@@ -282,9 +361,9 @@ func (o *OrderRepository) InsertItems(ctx context.Context, ext RepoExtension, or
 	return nil
 }
 
-func (o *OrderRepository) SelectItems(ctx context.Context, ext RepoExtension, orderUID string) ([]model.Item, error) {
+func (o *OrderRepository) selectItems(ctx context.Context, ext RepoExtension, orderUID string) ([]model.Item, error) {
 	if ext == nil {
-		ext = o.DB
+		ext = o.db
 	}
 
 	const query = `

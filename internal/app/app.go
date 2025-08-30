@@ -31,7 +31,7 @@ type App struct {
 }
 
 type Repository struct {
-	OrderRepository *repository.OrderRepository
+	OrderRepository service.OrderRepository
 }
 
 type Service struct {
@@ -60,7 +60,7 @@ func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error)
 		return nil, fmt.Errorf("failed to initialize kafka: %w", err)
 	}
 
-	repo := initRepository(db)
+	repo := initRepository(db, rdb, cfg.Enable)
 
 	svc := initService(log, &cfg.Subscriber, consumer, db, repo)
 
@@ -202,8 +202,16 @@ func initKafka(cfg *config.Kafka, log *zap.Logger) (kafka.ConsumerGroupRunner, e
 	return consumerGroup, nil
 }
 
-func initRepository(db postgres.Postgres) *Repository {
+func initRepository(db postgres.Postgres, rdb redis.Redis, enableCache bool) *Repository {
 	orderRepository := repository.NewOrderRepository(db.Pool())
+
+	if enableCache {
+		orderWithCacheRepository := repository.NewOrderWithCacheRepository(rdb.RDB(), orderRepository)
+
+		return &Repository{
+			OrderRepository: orderWithCacheRepository,
+		}
+	}
 
 	return &Repository{
 		OrderRepository: orderRepository,
