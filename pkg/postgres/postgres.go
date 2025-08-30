@@ -96,11 +96,7 @@ func New(cfg *Config) (postgresDB Postgres, err error) {
 
 	}
 
-	postgresDB = &postgres{
-		db: pool,
-	}
-
-	return postgresDB, nil
+	return &postgres{db: pool}, nil
 }
 
 func (p *postgres) Pool() *pgxpool.Pool {
