@@ -17,6 +17,7 @@ type Config struct {
 	App        `yaml:"app"`
 	Logger     `yaml:"log"`
 	Database   `yaml:"database"`
+	Redis      `yaml:"redis"`
 	Kafka      `yaml:"kafka"`
 	HTTPServer `yaml:"http_server"`
 }
@@ -53,6 +54,14 @@ type Database struct {
 type Migration struct {
 	Path      string `yaml:"path"`
 	AutoApply bool   `yaml:"auto_apply"`
+}
+
+type Redis struct {
+	Enable   bool   `yaml:"enable"`
+	Host     string `yaml:"host"`
+	Port     uint16 `yaml:"port"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 type Kafka struct {
