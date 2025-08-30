@@ -14,7 +14,7 @@ type Redis interface {
 
 type Config struct {
 	Host     string
-	Port     string
+	Port     uint16
 	Password string
 	DB       int
 }
@@ -23,9 +23,9 @@ type redis struct {
 	rdb *goredis.Client
 }
 
-func New(cfg Config) (Redis, error) {
+func New(cfg *Config) (Redis, error) {
 	rdb := goredis.NewClient(&goredis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
+		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})
