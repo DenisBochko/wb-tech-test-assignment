@@ -1,0 +1,52 @@
+app:
+  service_name: "wb-tech-test-assignment"
+log:
+  level: "debug"
+  format_json: false
+  rotation:
+    file: "./test-assignment.log"
+    max_size: 10
+    max_backups: 3
+    max_age: 7
+database:
+  host: "postgres"
+  port: 5432
+  user: "postgres"
+  password: "admin"
+  name: "wb-tech-test-assignment"
+  ssl_mode: "disable"
+  max_conns: 10
+  min_conns: 2
+  migration:
+    path: "./migrations"
+    auto_apply: true
+redis:
+  enable: false
+  host: "redis"
+  port: 6379
+  password: "admin"
+  db: 0
+kafka:
+  brokers:
+    - "broker:29092"
+  subscriber:
+    name: "orders-subscriber"
+    worker_count: 5
+    orders_subscriber:
+      buffer_size: 100
+      topic: "wb-tech-test-assignment-orders-topic-v1"
+      group_id: "wb-tech-test-assignment-orders-group-v1"
+  producer:
+    name: "orders-producer"
+    worker_count: 10
+    orders_producer:
+      topic: "wb-tech-test-assignment-orders-topic-v1"
+http_server:
+  host: "0.0.0.0"
+  port: 8080
+  base_path: ""
+  timeout:
+    request: 3s
+    read: 5s
+    write: 5s
+    idle: 5s
