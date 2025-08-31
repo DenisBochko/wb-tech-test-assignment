@@ -52,6 +52,16 @@ tasks:
     cmds:
       - go run ./cmd/{{.APP_PATH_NAME}} --config={{.CONFIG_PATH}}
 
+  run-filling-with-data:
+    desc: "Запускает скрипт, который отправляет 1000 сообщение в kafka"
+    cmds:
+      - go run ./cmd/add_data_script --config={{.CONFIG_PATH}}
+
+  run-load-testing:
+    desc: "Запускает скрипт, который получает все заказы"
+    cmds:
+      - go run ./cmd/load_testing_script --config={{.CONFIG_PATH}}
+
   build:
     desc: "Собирает приложение"
     cmds:
