@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	"wb-tech-test-assignment/internal/model"
 
 	"github.com/redis/go-redis/v9"
+
+	"wb-tech-test-assignment/internal/model"
 )
 
 const (
-	defaultTTL       = 60 * time.Second
+	defaultTTL       = 24 * time.Hour
 	defaultBatchSize = 100
 )
 
@@ -57,8 +58,6 @@ func (o *OrderWithCacheRepository) GetOrder(ctx context.Context, orderUID string
 	val, err := o.rdb.Get(ctx, orderUID).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			fmt.Println("ЗАКАЗА НЕТ В КЕШЕ")
-
 			order, err = o.repo.GetOrder(ctx, orderUID)
 			if err != nil {
 				return model.Order{}, fmt.Errorf("failed to get order from DB: %w", err)
