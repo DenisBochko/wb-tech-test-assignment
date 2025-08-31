@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:17
-    container_name: "database"
+    container_name: postgres
     environment:
       POSTGRES_PASSWORD: "admin"
       POSTGRES_USER: "postgres"
@@ -53,6 +53,12 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "nc -z localhost 9092" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -65,6 +71,23 @@ services:
       AUTH_TYPE: "DISABLED"
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+
+  wb-tech-test-assignment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wb-tech-test-assignment
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/config.docker.yml:/app/config/config.docker.yml
 
 volumes:
   postgres_data:
