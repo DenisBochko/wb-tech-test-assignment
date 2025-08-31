@@ -31,11 +31,16 @@ kafka:
     - "127.0.0.1:9092"
   subscriber:
     name: "orders-subscriber"
-    worker_count: 3
+    worker_count: 5
     orders_subscriber:
       buffer_size: 100
       topic: "wb-tech-test-assignment-orders-topic-v1"
       group_id: "wb-tech-test-assignment-orders-group-v1"
+  producer:
+    name: "orders-producer"
+    worker_count: 10
+    orders_producer:
+      topic: "wb-tech-test-assignment-orders-topic-v1"
 http_server:
   host: "127.0.0.1"
   port: 8080

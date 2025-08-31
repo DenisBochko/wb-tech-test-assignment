@@ -67,6 +67,7 @@ type Redis struct {
 type Kafka struct {
 	Brokers    []string   `yaml:"brokers"`
 	Subscriber Subscriber `yaml:"subscriber"`
+	Producer   Producer   `yaml:"producer"`
 }
 
 type Subscriber struct {
@@ -79,6 +80,16 @@ type OrdersSubscriber struct {
 	BufferSize int    `yaml:"buffer_size"`
 	Topic      string `yaml:"topic"`
 	GroupID    string `yaml:"group_id"`
+}
+
+type Producer struct {
+	Name           string         `yaml:"name"`
+	WorkerCount    int            `yaml:"worker_count"`
+	OrdersProducer OrdersProducer `yaml:"orders_producer"`
+}
+
+type OrdersProducer struct {
+	Topic string `yaml:"topic"`
 }
 
 type HTTPServer struct {
