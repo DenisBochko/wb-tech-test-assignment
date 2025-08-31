@@ -88,6 +88,8 @@ services:
       - "8080:8080"
     volumes:
       - ./config/config.docker.yml:/app/config/config.docker.yml
+    environment:
+      CONFIG_PATH: "/app/config/config.docker.yml"
 
 volumes:
   postgres_data:

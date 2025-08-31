@@ -157,5 +157,9 @@ func fetchConfigPath() string {
 	flag.StringVar(&result, "config", "", "Path to config file")
 	flag.Parse()
 
+	if result == "" {
+		result = os.Getenv("CONFIG_PATH")
+	}
+
 	return result
 }
