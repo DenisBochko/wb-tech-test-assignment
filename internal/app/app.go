@@ -206,6 +206,8 @@ func initRepository(ctx context.Context, log *zap.Logger, db postgres.Postgres, 
 	orderRepository := repository.NewOrderRepository(db.Pool())
 
 	if enableCache {
+		log.Info("Cache enabled")
+
 		orderWithCacheRepository := repository.NewOrderWithCacheRepository(rdb.RDB(), orderRepository)
 
 		go func() {
