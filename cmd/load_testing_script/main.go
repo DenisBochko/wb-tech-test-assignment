@@ -26,7 +26,7 @@ func main() {
 		},
 	}
 
-	for i := 1; i < 10000; i++ {
+	for i := 1; i < 1000; i++ {
 		resp, err := client.Get(fmt.Sprintf("http://%s:%d/api/order/%d", host, port, i))
 		if err != nil {
 			log.Fatalf("Failed to get order %d: %v", i, err)

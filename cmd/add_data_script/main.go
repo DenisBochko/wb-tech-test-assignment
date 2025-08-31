@@ -113,7 +113,7 @@ func worker(ctx context.Context, id int, producer kafka.Producer) {
 		OofShard:          "2",
 	}
 
-	for i := (id - 1) * 1000; i < id*1000; i++ {
+	for i := (id - 1) * 100; i < id*100; i++ {
 		testOrder.OrderUID = strconv.Itoa(i)
 
 		massage, err := json.Marshal(testOrder)
