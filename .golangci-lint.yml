@@ -1,0 +1,105 @@
+version: "2"
+
+run:
+  timeout: 5m                   # Максимальное время работы линтера (5 минут)
+  relative-path-mode: gomod      # Пути будут относительными к модулю (удобно для монорепы)
+  issues-exit-code: 1            # Код выхода = 1, если найдены ошибки (полезно для CI/CD)
+  tests: true                    # Анализировать также _test.go файлы
+  modules-download-mode: readonly # Не разрешать загрузку зависимостей во время анализа (безопасно и быстрее на CI)
+  allow-parallel-runners: true
+
+output: # Настройки вывода результатов линтинга
+  formats:
+    text:
+      print-linter-name: true    # Показывать имя линтера
+      print-issued-lines: true   # Показывать строку с проблемой
+      colors: true               # Цветной вывод (удобнее читать)
+
+issues:
+  uniq-by-line: true             # Не дублировать одинаковые замечания для одной строки
+
+linters:
+  default: standard              # Включает стандартный набор линтеров
+  enable:                        # Дополнительно включаем нужные
+    - wsl_v5          # Проверка пустых строк (новая версия)
+    - nilerr          # Проверяет, что не возвращается nil при != nil ошибке
+    - errcheck        # Ошибки должны обрабатываться
+    - staticcheck     # Глубокий статический анализ (gosimple, stylecheck внутри)
+    - govet           # Встроенный go vet (ловит баги)
+    - gocritic        # Продвинутые эвристики для улучшения кода
+    - revive          # Проверка стиля, оформления, названий
+    - unused          # Неиспользуемые переменные, типы, функции
+    - gosec           # Поиск уязвимостей и небезопасного кода
+    - depguard        # Контроль импортов (запрет пакетов)
+    - bodyclose       # Проверка закрытия resp.Body
+    - asciicheck      # Предупреждение о не-ASCII символах в коде
+    - cyclop          # Проверка цикломатической сложности
+    - dupl            # Поиск дублированных кусков кода
+    - ineffassign     # Неиспользуемые присваивания
+    - unparam         # Неиспользуемые параметры функций
+    - errorlint       # errors.Is/errors.As вместо прямого сравнения
+    - errname         # Имена ошибок должны содержать "Err"
+    - forbidigo       # Запрещённые вызовы (по regex)
+    - contextcheck    # Проверка передачи context.Context
+    - containedctx    # Предупреждение о хранении context в структуре
+  disable:
+    - wsl             # Старая версия проверки пустых строк
+    - gocyclo         # Старый линтер сложности (заменён на cyclop)
+    - lll             # Длина строки (часто шумит и мешает)
+
+  exclusions:
+    generated: strict  # Игнорировать сгенерированные файлы ("DO NOT EDIT")
+    rules:
+      - path: _test\.go   # Для тестов отключаем строгие проверки
+        linters:
+          - cyclop
+          - dupl
+          - gosec
+
+  settings:
+    gosec:
+      config:
+        global:
+          audit: true        # Включить все правила безопасности
+          show-ignored: true # Показывать проигнорированные правила в комментах
+        severity: "medium"   # Минимальная важность (medium и выше)
+        confidence: "medium" # Минимальная уверенность (medium и выше)
+
+    cyclop:
+      max-complexity: 20     # Допустимая сложность функций (по умолчанию часто ставят 10)
+
+    depguard:
+      rules:
+        main:
+          allow:             # Сюда можно добавить "разрешённые" импорты
+          deny:
+            - pkg: io/ioutil # Запрещаем устаревший пакет
+              desc: "Использование устаревшего пакета io/ioutil запрещено (замените вызовы на os/io)"
+
+    revive:
+      severity: warning      # Замечания от revive будут предупреждениями (не ошибки)
+
+    forbidigo:
+      exclude-godoc-examples: true
+      analyze-types: true
+      forbid:
+        - pattern: '^fmt\.Print.*$'
+          msg: "Нельзя использовать fmt.Print* для логов — используй структурированный логгер"
+        - pattern: '^time\.Sleep$'
+          msg: "Запрещено использовать time.Sleep в проде (лучше таймеры/контекст)"
+        - pattern: '^http\.DefaultClient$'
+          msg: "Не используй http.DefaultClient (без таймаутов); создай *http.Client с таймаутами"
+
+formatters:
+  enable:
+    - gofumpt  # Автоформатирование кода (жёстче чем gofmt)
+    - gci      # Упорядочивание импортов
+  settings:
+    gofumpt:
+      extra-rules: true
+    gci:
+      sections: # Порядок импортов
+        - Standard
+        - Default
+        - Prefix # Локальные импорты проекта
+      no-inline-comments: false

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Lookup</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            animation: fadeIn 0.5s ease;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #343a40;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+        }
+        .card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            background: #fdfdfd;
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #007bff;
+        }
+        pre {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔍 Order Lookup</h1>
+    <div class="input-group">
+        <input type="text" id="orderId" placeholder="Enter Order UID...">
+        <button onclick="fetchOrder()">Find</button>
+    </div>
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+    async function fetchOrder() {
+        const id = document.getElementById('orderId').value.trim();
+        const resultEl = document.getElementById('result');
+        resultEl.innerHTML = '';
+
+        if (!id) {
+            resultEl.innerHTML = '<p class="error">Please enter an Order UID.</p>';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/order/${id}`);
+            const data = await res.json();
+
+            if (data.status === "error") {
+                resultEl.innerHTML = `<p class="error">❌ ${data.message}</p>`;
+            } else {
+                const order = data.data;
+                resultEl.innerHTML = `
+            <div class="card">
+              <h2>📦 Order: ${order.order_uid}</h2>
+              <p><b>Track:</b> ${order.track_number}</p>
+              <p><b>Customer:</b> ${order.delivery.name} (${order.delivery.email})</p>
+              <p><b>Address:</b> ${order.delivery.city}, ${order.delivery.address}</p>
+              <p><b>Payment:</b> ${order.payment.amount} ${order.payment.currency} via ${order.payment.provider}</p>
+              <p><b>Date:</b> ${new Date(order.date_created).toLocaleString()}</p>
+            </div>
+            <h3>Raw Data</h3>
+            <pre>${JSON.stringify(order, null, 2)}</pre>
+          `;
+            }
+        } catch (err) {
+            resultEl.innerHTML = `<p class="error">⚠️ Error: ${err.message}</p>`;
+        }
+    }
+</script>
+</body>
+</html>

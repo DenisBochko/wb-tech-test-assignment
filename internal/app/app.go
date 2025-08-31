@@ -1,0 +1,255 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	"wb-tech-test-assignment/internal/api/http/handler"
+	"wb-tech-test-assignment/internal/api/http/middleware"
+	"wb-tech-test-assignment/internal/apperrors"
+	"wb-tech-test-assignment/internal/config"
+	"wb-tech-test-assignment/internal/repository"
+	"wb-tech-test-assignment/internal/service"
+	"wb-tech-test-assignment/pkg/kafka"
+	"wb-tech-test-assignment/pkg/postgres"
+	"wb-tech-test-assignment/pkg/redis"
+	"wb-tech-test-assignment/pkg/server"
+)
+
+type App struct {
+	Cfg        *config.Config
+	Log        *zap.Logger
+	DB         postgres.Postgres
+	RDB        redis.Redis
+	Consumer   kafka.ConsumerGroupRunner
+	HTTPServer server.HTTPServer
+	Service    *Service
+}
+
+type Repository struct {
+	OrderRepository service.OrderRepository
+}
+
+type Service struct {
+	OrderService *service.OrderService
+}
+
+func New(ctx context.Context, cfg *config.Config, log *zap.Logger) (*App, error) {
+	db, err := initDB(&cfg.Database)
+	if err != nil {
+		log.Error("Failed to initialize database", zap.Error(err))
+
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	rdb, err := initRedis(&cfg.Redis)
+	if err != nil {
+		log.Error("Failed to initialize redis", zap.Error(err))
+
+		return nil, fmt.Errorf("failed to initialize redis: %w", err)
+	}
+
+	consumer, err := initKafka(&cfg.Kafka, log)
+	if err != nil {
+		log.Error("Failed to initialize kafka", zap.Error(err))
+
+		return nil, fmt.Errorf("failed to initialize kafka: %w", err)
+	}
+
+	repo := initRepository(ctx, log, db, rdb, cfg.Enable)
+
+	svc := initService(log, &cfg.Subscriber, consumer, db, repo)
+
+	httpServer := initHTTPServer(ctx, log, cfg.HTTPServer, svc.OrderService)
+
+	return &App{
+		Cfg:        cfg,
+		Log:        log,
+		DB:         db,
+		RDB:        rdb,
+		Consumer:   consumer,
+		HTTPServer: httpServer,
+		Service:    svc,
+	}, nil
+}
+
+func MustNew(ctx context.Context, cfg *config.Config, log *zap.Logger) *App {
+	app, err := New(ctx, cfg, log)
+	if err != nil {
+		panic(err)
+	}
+
+	return app
+}
+
+func (a *App) Run(ctx context.Context) error {
+	errs := make(chan error)
+	defer close(errs)
+
+	go func() {
+		if err := a.Service.OrderService.Run(ctx); err != nil {
+			errs <- err
+		}
+	}()
+
+	go func() {
+		if err := a.HTTPServer.Run(); err != nil {
+			errs <- err
+		}
+	}()
+
+	if err := <-errs; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *App) Shutdown() error {
+	a.DB.Close()
+
+	a.Log.Debug("Database closed")
+
+	err := apperrors.ErrShutdown
+
+	if rdbErr := a.RDB.Close(); rdbErr != nil {
+		err = fmt.Errorf("%w, failed to close RDB: %w", err, rdbErr)
+	}
+
+	a.Log.Debug("Redis closed")
+
+	if svcErr := a.Service.OrderService.Shutdown(); svcErr != nil {
+		err = fmt.Errorf("%w, failed to shutdown order service: %w", err, svcErr)
+	}
+
+	a.Log.Debug("Order service shutdown")
+
+	if srvErr := a.HTTPServer.Shutdown(); srvErr != nil {
+		err = fmt.Errorf("%w, failed to shutdown http server: %w", err, srvErr)
+	}
+
+	a.Log.Debug("Http server shutdown")
+
+	if !errors.Is(err, apperrors.ErrShutdown) {
+		return err
+	}
+
+	return nil
+}
+
+func initDB(cfg *config.Database) (postgres.Postgres, error) {
+	postgresCfg := &postgres.Config{
+		Host:     cfg.Host,
+		Port:     cfg.Port,
+		User:     cfg.User,
+		Password: cfg.Password,
+		Name:     cfg.Name,
+		SSLMode:  cfg.SSLMode,
+		MaxConns: cfg.MaxConns,
+		MinConns: cfg.MinConns,
+		Migration: postgres.Migration{
+			Path:      cfg.Migration.Path,
+			AutoApply: cfg.Migration.AutoApply,
+		},
+	}
+
+	db, err := postgres.New(postgresCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func initRedis(cfg *config.Redis) (redis.Redis, error) {
+	redisCfg := &redis.Config{
+		Host:     cfg.Host,
+		Port:     cfg.Port,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	}
+
+	rdb, err := redis.New(redisCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return rdb, nil
+}
+
+func initKafka(cfg *config.Kafka, log *zap.Logger) (kafka.ConsumerGroupRunner, error) {
+	consumerGroup, err := kafka.NewConsumerGroupRunner(
+		cfg.Brokers,
+		cfg.Subscriber.OrdersSubscriber.GroupID,
+		[]string{cfg.Subscriber.OrdersSubscriber.Topic},
+		cfg.Subscriber.OrdersSubscriber.BufferSize,
+		kafka.WithBalancerConsumer(kafka.RoundrobinBalanceStrategy),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		startAndRunningStr := <-consumerGroup.Info()
+
+		log.Info(startAndRunningStr)
+	}()
+
+	return consumerGroup, nil
+}
+
+func initRepository(ctx context.Context, log *zap.Logger, db postgres.Postgres, rdb redis.Redis, enableCache bool) *Repository {
+	orderRepository := repository.NewOrderRepository(db.Pool())
+
+	if enableCache {
+		log.Info("Cache enabled")
+
+		orderWithCacheRepository := repository.NewOrderWithCacheRepository(rdb.RDB(), orderRepository)
+
+		go func() {
+			if err := orderWithCacheRepository.WarmupCache(ctx); err != nil {
+				log.Error("Failed to warmup orders with cache repository", zap.Error(err))
+			}
+
+			log.Info("Warmup orders with cache repository finished")
+		}()
+
+		return &Repository{
+			OrderRepository: orderWithCacheRepository,
+		}
+	}
+
+	return &Repository{
+		OrderRepository: orderRepository,
+	}
+}
+
+func initService(log *zap.Logger, cfg *config.Subscriber, consumer kafka.ConsumerGroupRunner, db postgres.Postgres, repo *Repository) *Service {
+	orderService := service.NewOrderService(log, cfg, consumer, db, repo.OrderRepository)
+
+	return &Service{
+		OrderService: orderService,
+	}
+}
+
+func initHTTPServer(ctx context.Context, log *zap.Logger, cfg config.HTTPServer, svc *service.OrderService) server.HTTPServer {
+	r := chi.NewRouter()
+
+	r.Use(middleware.Logger(log))
+
+	r.Get("/", handler.MainPage)
+	r.Get("/api/ping", handler.Ping)
+	r.Get("/api/order/{orderUID}", handler.GetOrder(ctx, svc))
+
+	httpServer := server.NewHTTPServer(
+		server.WithAddr(cfg.Host, cfg.Port),
+		server.WithTimeout(cfg.Timeout.Read, cfg.Timeout.Write, cfg.Timeout.Idle),
+		server.WithHandler(r),
+	)
+
+	return httpServer
+}

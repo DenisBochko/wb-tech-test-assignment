@@ -1,0 +1,68 @@
+version: '3'
+
+vars:
+  APP_NAME: 'wb-tech-test-assignment'
+  APP_PATH_NAME: 'wb_tech_test_assignment'
+  CONFIG_PATH: './config/config.template.yml'
+  GOLANGCI_LINT_VERSION: 'v2.3.0'
+  TASKFILE_VERSION: 'latest'
+  GOMIGRATE_VERSION: 'latest'
+  GCI_VERSION: 'latest'
+  GOFUMPT_VERSION: 'latest'
+
+tasks:
+  install-formatters:
+    desc: "Устанавливает форматеры gci и gofumpt"
+    cmds:
+      - go install github.com/daixiang0/gci@{{.GCI_VERSION}}
+      - go install mvdan.cc/gofumpt@{{.GOFUMPT_VERSION}}
+    status:
+      - test -x gci
+      - test -x gofumpt
+
+  install-tools:
+    desc: "Устанавливает и обновляет инструменты"
+    cmds:
+      - go install github.com/go-task/task/v3/cmd/task@{{.TASKFILE_VERSION}}
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+      - go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@{{.GOMIGRATE_VERSION}}
+    status:
+      - test -x task
+      - test -x golangci-lint
+
+  migrate-create:
+    desc: "Создать новую миграцию. Пример: task migrate-create NAME=add_users_table"
+    cmds:
+      - 'migrate create -ext sql -dir ./migrations -seq "{{.NAME}}"'
+
+  format:
+    desc: "Форматирует весь проект: gofumpt + gci"
+    cmds:
+      - gofumpt -l -w .
+      - gci write -s standard -s default -s "prefix({{.APP_NAME}})" .
+    silent: true
+
+  lint:
+    desc: "Запускает линтер"
+    cmds:
+      - golangci-lint run ./...
+
+  run:
+    desc: "Запускает приложение"
+    cmds:
+      - go run ./cmd/{{.APP_PATH_NAME}} --config={{.CONFIG_PATH}}
+
+  run-filling-with-data:
+    desc: "Запускает скрипт, который отправляет 1000 сообщение в kafka"
+    cmds:
+      - go run ./cmd/add_data_script --config={{.CONFIG_PATH}}
+
+  run-load-testing:
+    desc: "Запускает скрипт, который получает все заказы"
+    cmds:
+      - go run ./cmd/load_testing_script --config={{.CONFIG_PATH}}
+
+  build:
+    desc: "Собирает приложение"
+    cmds:
+      - go build -o ./bin/{{.APP_NAME}} ./cmd/{{.APP_PATH_NAME}}
