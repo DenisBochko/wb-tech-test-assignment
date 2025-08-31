@@ -15,11 +15,11 @@ func Logger(log *zap.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(w, r)
 
-			latency := float64(time.Since(start).Milliseconds())
+			latency := time.Since(start).Microseconds()
 			log.Info("request",
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
-				zap.String("latency", fmt.Sprintf("%.3f ms", latency)), // дробная часть + единицы
+				zap.String("latency", fmt.Sprintf("%d µs", latency)),
 			)
 		})
 	}
