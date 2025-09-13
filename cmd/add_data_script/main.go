@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v7"
+
 	"wb-tech-test-assignment/internal/config"
 	"wb-tech-test-assignment/internal/model"
 	"wb-tech-test-assignment/pkg/kafka"
@@ -46,77 +48,10 @@ func main() {
 }
 
 func worker(ctx context.Context, id int, producer kafka.Producer) {
-	testOrder := model.Order{
-		OrderUID:    "",
-		TrackNumber: "WB123456789",
-		Entry:       "WEB",
-
-		Delivery: model.Delivery{
-			Name:    "Иван Иванов",
-			Phone:   "+79991234567",
-			Zip:     "101000",
-			City:    "Москва",
-			Address: "ул. Арбат, д. 10, кв. 5",
-			Region:  "Москва",
-			Email:   "ivan@example.com",
-		},
-
-		Payment: model.Payment{
-			Transaction:  "PAY123456",
-			RequestID:    "REQ7890",
-			Currency:     "RUB",
-			Provider:     "bank_card",
-			Amount:       3500,
-			PaymentDt:    time.Now().Unix(),
-			Bank:         "Tinkoff",
-			DeliveryCost: 300,
-			GoodsTotal:   3200,
-			CustomFee:    0,
-		},
-
-		Items: []model.Item{
-			{
-				ChrtID:      111111,
-				TrackNumber: "WB123456789",
-				Price:       2000,
-				RID:         "RID12345",
-				Name:        "Футболка мужская",
-				Sale:        10,
-				Size:        "L",
-				TotalPrice:  1800,
-				NmID:        555555,
-				Brand:       "Nike",
-				Status:      1,
-			},
-			{
-				ChrtID:      222222,
-				TrackNumber: "WB123456789",
-				Price:       1200,
-				RID:         "RID67890",
-				Name:        "Кепка",
-				Sale:        0,
-				Size:        "M",
-				TotalPrice:  1200,
-				NmID:        666666,
-				Brand:       "Adidas",
-				Status:      1,
-			},
-		},
-
-		Locale:            "ru",
-		InternalSignature: "",
-		CustomerID:        "cust-001",
-		DeliveryService:   "cdek",
-		ShardKey:          "1",
-		SmID:              42,
-		DateCreated:       time.Now(),
-		OofShard:          "2",
-	}
-
 	for i := (id - 1) * 100; i < id*100; i++ {
-		testOrder.OrderUID = strconv.Itoa(i)
+		order := generateOrder(i)
 
-		massage, err := json.Marshal(testOrder)
+		massage, err := json.Marshal(order)
 		if err != nil {
 			log.Println(err)
 		}
@@ -127,5 +62,61 @@ func worker(ctx context.Context, id int, producer kafka.Producer) {
 		}
 
 		log.Printf("Pushed message to partition %d at offset %d\n", partition, offset)
+	}
+}
+
+func generateOrder(id int) model.Order {
+	return model.Order{
+		OrderUID:    strconv.Itoa(id),
+		TrackNumber: gofakeit.Regex(`[A-Z]{2}[0-9]{9}`),
+		Entry:       "WEB",
+
+		Delivery: model.Delivery{
+			Name:    gofakeit.Name(),
+			Phone:   gofakeit.Phone(),
+			Zip:     gofakeit.Zip(),
+			City:    gofakeit.City(),
+			Address: gofakeit.Address().Street,
+			Region:  gofakeit.State(),
+			Email:   gofakeit.Email(),
+		},
+
+		Payment: model.Payment{
+			Transaction:  gofakeit.UUID(),
+			RequestID:    gofakeit.UUID(),
+			Currency:     gofakeit.CurrencyShort(),
+			Provider:     gofakeit.RandomString([]string{"bank_card", "paypal", "qiwi", "apple_pay"}),
+			Amount:       int(gofakeit.Price(1000, 10000)),
+			PaymentDt:    time.Now().Unix(),
+			Bank:         gofakeit.Company(),
+			DeliveryCost: int(gofakeit.Price(200, 500)),
+			GoodsTotal:   int(gofakeit.Price(500, 9500)),
+			CustomFee:    int(gofakeit.Price(0, 300)),
+		},
+
+		Items: []model.Item{
+			{
+				ChrtID:      gofakeit.Number(100000, 999999),
+				TrackNumber: gofakeit.Regex(`[A-Z]{2}[0-9]{9}`),
+				Price:       int(gofakeit.Price(500, 5000)),
+				RID:         gofakeit.UUID(),
+				Name:        gofakeit.ProductName(),
+				Sale:        gofakeit.Number(0, 50),
+				Size:        gofakeit.RandomString([]string{"S", "M", "L", "XL"}),
+				TotalPrice:  int(gofakeit.Price(400, 4500)),
+				NmID:        gofakeit.Number(100000, 999999),
+				Brand:       gofakeit.Car().Brand,
+				Status:      1,
+			},
+		},
+
+		Locale:            "ru",
+		InternalSignature: "",
+		CustomerID:        gofakeit.UUID(),
+		DeliveryService:   gofakeit.RandomString([]string{"cdek", "dhl", "ups", "dpd"}),
+		ShardKey:          strconv.Itoa(gofakeit.Number(1, 5)),
+		SmID:              gofakeit.Number(1, 100),
+		DateCreated:       time.Now(),
+		OofShard:          strconv.Itoa(gofakeit.Number(1, 5)),
 	}
 }
