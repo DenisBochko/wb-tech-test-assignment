@@ -65,30 +65,6 @@ func WithRequiredAcks(a RequiredAcks) Option {
 	}
 }
 
-// WithSASLConfig configures SASL authentication for IBM Event Streams.
-func WithSASLConfig(username, password string) Option {
-	return func(cfg *sarama.Config) {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.User = username
-		cfg.Net.SASL.Password = password
-		cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-	}
-}
-
-// WithTLSConfig enables TLS for secure connections.
-func WithTLSConfig() Option {
-	return func(cfg *sarama.Config) {
-		cfg.Net.TLS.Enable = true
-	}
-}
-
-// WithTimeuot enables timeout
-func WithTimeuot(timeout time.Duration) Option {
-	return func(cfg *sarama.Config) {
-		cfg.Producer.Timeout = timeout
-	}
-}
-
 type producer struct {
 	syncProducer sarama.SyncProducer
 	topic        string
