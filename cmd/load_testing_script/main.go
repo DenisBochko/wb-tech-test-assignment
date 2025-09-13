@@ -42,7 +42,7 @@ func main() {
 
 		var response struct {
 			Status string      `json:"status"`
-			Order  model.Order `json:"order"`
+			Data   model.Order `json:"data"`
 		}
 
 		if err := json.Unmarshal(body, &response); err != nil {
@@ -51,6 +51,6 @@ func main() {
 		}
 
 		// печатаем ответ
-		fmt.Printf("Order %d: status=%s, order=%+v\n", i, response.Status, response.Order)
+		fmt.Printf("Order %d: status=%s, order=%+v\n", i, response.Status, response.Data)
 	}
 }
